@@ -6,6 +6,7 @@
 
     <string name="init_refresh_toast_message">Refresh data</string>
     <string name="download_error">Something bad happened during download json. Check your internet connection</string>
+    <string name="recover_from_db">Trying to recover data from local database</string>
 
 
 </resources>

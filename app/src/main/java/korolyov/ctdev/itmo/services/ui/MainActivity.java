@@ -232,6 +232,7 @@ public class MainActivity extends ActionBarActivity {
                 Log.e(TAG, "Error while downloading JSON");
                 Toast.makeText(applicationContext, R.string.download_error, Toast.LENGTH_LONG).show();
                 Log.d(TAG, "Try to recover data from database");
+                Toast.makeText(applicationContext, R.string.recover_from_db, Toast.LENGTH_LONG).show();
                 LoadFromDB loadFromDB = new LoadFromDB();
                 loadFromDB.execute(false);
             }
