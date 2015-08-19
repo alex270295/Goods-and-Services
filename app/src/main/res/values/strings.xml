@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Goods and Services</string>
+
+    <string name="url">https://money.yandex.ru/api/categories-list</string>
+
     <string name="init_refresh_toast_message">Refresh data</string>
+    <string name="download_error">Something bad happened during download json. Check your internet connection</string>
+
 
 </resources>

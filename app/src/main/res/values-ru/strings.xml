@@ -2,4 +2,5 @@
 <resources>
     <string name="app_name">Сервисы и услуги</string>
     <string name="init_refresh_toast_message">Дерево товаров и услуг загружается заново</string>
+    <string name="download_error">Произошла ошибка при загрузке JSON. Проверьте подключение к интернету.</string>
 </resources>

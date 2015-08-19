@@ -7,6 +7,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.ActionBarActivity;
+import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -23,8 +24,8 @@ import korolyov.ctdev.itmo.services.items.Good;
 import korolyov.ctdev.itmo.services.tools.Serializer;
 
 public class GoodsActivity extends ActionBarActivity {
-
     private static Context applicationContext;
+    private final String TAG = this.getClass().getCanonicalName();
     private final List<Good> goodsList = new ArrayList<>();
     private ArrayAdapter<Good> arrayAdapter;
 
@@ -33,7 +34,6 @@ public class GoodsActivity extends ActionBarActivity {
         Bundle extras = getIntent().getExtras();
         String subs = extras.getString(InternalContract.SUBS);
         String title = extras.getString(InternalContract.TITLE);
-
         getSupportActionBar().setTitle(title);
         return Serializer.deserialize(subs);
     }
@@ -44,6 +44,7 @@ public class GoodsActivity extends ActionBarActivity {
         setContentView(R.layout.activity_goods);
         applicationContext = getApplicationContext();
         Set<Integer> set = readExtras();
+
         arrayAdapter = new ArrayAdapter<>(applicationContext, R.layout.list_item, goodsList);
         ListView lvGoods = (ListView) findViewById(R.id.lvGoods);
         lvGoods.setOnItemClickListener(new AdapterView.OnItemClickListener() {
@@ -51,6 +52,7 @@ public class GoodsActivity extends ActionBarActivity {
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 Good good = goodsList.get(position);
                 if (good.getSubs() != null) {
+                    Log.d(TAG, "Category have subs. Showing subs level");
                     Intent intent = new Intent(applicationContext, GoodsActivity.class);
                     intent.putExtra(InternalContract.SUBS, Serializer.serialize(goodsList.get(position).getSubs()));
                     intent.putExtra(InternalContract.TITLE, goodsList.get(position).getTitle());
@@ -59,11 +61,13 @@ public class GoodsActivity extends ActionBarActivity {
             }
         });
         lvGoods.setAdapter(arrayAdapter);
-        Task task = new Task();
+
+        LoadGoodsFromDB task = new LoadGoodsFromDB();
         task.execute(set);
+        Log.d(TAG, "Loading goods from DB");
     }
 
-    private class Task extends AsyncTask<Set<Integer>, Void, Void> {
+    private class LoadGoodsFromDB extends AsyncTask<Set<Integer>, Void, Void> {
 
         @Override
         protected Void doInBackground(Set<Integer>... params) {
@@ -88,6 +92,7 @@ public class GoodsActivity extends ActionBarActivity {
         @Override
         protected void onPostExecute(Void aVoid) {
             super.onPostExecute(aVoid);
+            Log.d(TAG, "Data loaded from DB");
             arrayAdapter.notifyDataSetChanged();
         }
     }

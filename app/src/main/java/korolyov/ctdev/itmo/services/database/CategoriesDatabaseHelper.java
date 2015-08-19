@@ -15,6 +15,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import korolyov.ctdev.itmo.services.contracts.ExternalContract;
 import korolyov.ctdev.itmo.services.tools.Serializer;
 
 public class CategoriesDatabaseHelper extends SQLiteOpenHelper {
@@ -69,26 +70,33 @@ public class CategoriesDatabaseHelper extends SQLiteOpenHelper {
         db.insert(databaseName, null, contentValues);
     }
 
+    public boolean isEmpty(SQLiteDatabase db) {
+        Cursor cursor = this.getItems(db);
+        int count = cursor.getCount();
+        cursor.close();
+        return count == 0;
+    }
+
     public void uploadJSON(SQLiteDatabase categoriesDB, SQLiteDatabase goodsDB, JSONArray array) throws JSONException {
         for (int i = 0; i < array.length(); i++) {
             JSONObject currentObject = array.getJSONObject(i);
-            String title = currentObject.getString("title");
-            if (currentObject.has("subs")) {
+            String title = currentObject.getString(ExternalContract.TITLE);
+            if (currentObject.has(ExternalContract.SUBS)) {
                 Map<Integer, String> goods = new HashMap<>();
-                JSONArray jsonArray = currentObject.getJSONArray("subs");
+                JSONArray jsonArray = currentObject.getJSONArray(ExternalContract.SUBS);
                 for (int j = 0; j < jsonArray.length(); j++) {
                     JSONObject good = jsonArray.getJSONObject(j);
-                    int goodId = good.getInt("id");
-                    String goodTitle = good.getString("title");
+                    int goodId = good.getInt(ExternalContract.ID);
+                    String goodTitle = good.getString(ExternalContract.TITLE);
                     goods.put(goodId, goodTitle);
                     Set<Integer> goodsSubs = null;
-                    if (good.has("subs")) {
+                    if (good.has(ExternalContract.SUBS)) {
                         goodsSubs = new HashSet<>();
-                        JSONArray subs = good.getJSONArray("subs");
+                        JSONArray subs = good.getJSONArray(ExternalContract.SUBS);
                         for (int k = 0; k < subs.length(); k++) {
                             JSONObject sub = subs.getJSONObject(k);
-                            int subId = sub.getInt("id");
-                            String subTitle = sub.getString("title");
+                            int subId = sub.getInt(ExternalContract.ID);
+                            String subTitle = sub.getString(ExternalContract.TITLE);
                             goodsSubs.add(subId);
                             uploadData(goodsDB, GoodsDatabaseHelper.DATABASE_NAME, subId, subTitle, null);
                         }

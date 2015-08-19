@@ -39,6 +39,7 @@ import korolyov.ctdev.itmo.services.tools.Serializer;
 
 
 public class MainActivity extends ActionBarActivity {
+    private final String TAG = this.getClass().getCanonicalName();
     private final List<Category> categoriesList = new ArrayList<>();
     private ArrayAdapter<Category> arrayAdapter;
     private ListView lvCategories;
@@ -64,6 +65,7 @@ public class MainActivity extends ActionBarActivity {
                 Toast.makeText(applicationContext, R.string.init_refresh_toast_message, Toast.LENGTH_LONG).show();
                 DownloadJSON downloadJSON = new DownloadJSON();
                 downloadJSON.execute();
+                Log.d(TAG, "Refreshing started with download new JSON");
             }
         });
 
@@ -75,6 +77,7 @@ public class MainActivity extends ActionBarActivity {
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 Category category = categoriesList.get(position);
                 if (category.getSubs() != null) {
+                    Log.d(TAG, "Category have subs. Showing subs level");
                     Intent intent = new Intent(applicationContext, GoodsActivity.class);
                     intent.putExtra(InternalContract.SUBS, Serializer.serialize(categoriesList.get(position).getSubs()));
                     intent.putExtra(InternalContract.TITLE, categoriesList.get(position).getTitle());
@@ -89,12 +92,15 @@ public class MainActivity extends ActionBarActivity {
     private void loadContent() {
         LoadFromDB loadFromDB = new LoadFromDB();
         loadFromDB.execute();
+        Log.d(TAG, "Try to load data from db");
     }
 
-    private class LoadFromDB extends AsyncTask<Void, Void, Boolean> {
+    private class LoadFromDB extends AsyncTask<Boolean, Void, Boolean> {
+        private boolean needDownloadAfter;
 
         @Override
-        protected Boolean doInBackground(Void... params) {
+        protected Boolean doInBackground(Boolean... params) {
+            needDownloadAfter = (params.length == 0) ? true : params[0];
             CategoriesDatabaseHelper categoriesDatabaseHelper = new CategoriesDatabaseHelper(applicationContext);
             SQLiteDatabase categories = categoriesDatabaseHelper.getReadableDatabase();
             Cursor cursor = categoriesDatabaseHelper.getItems(categories);
@@ -115,9 +121,14 @@ public class MainActivity extends ActionBarActivity {
         protected void onPostExecute(Boolean aBoolean) {
             super.onPostExecute(aBoolean);
             if (!aBoolean) {
-                DownloadJSON downloadJSON = new DownloadJSON();
-                downloadJSON.execute();
+                Log.d(TAG, "DB empty.");
+                if (needDownloadAfter) {
+                    Log.d(TAG, "Download JSON");
+                    DownloadJSON downloadJSON = new DownloadJSON();
+                    downloadJSON.execute();
+                }
             } else {
+                Log.d(TAG, "Loaded from DB");
                 arrayAdapter.notifyDataSetChanged();
             }
         }
@@ -131,12 +142,13 @@ public class MainActivity extends ActionBarActivity {
             CategoriesDatabaseHelper categoriesDatabaseHelper = new CategoriesDatabaseHelper(applicationContext);
             SQLiteDatabase categories = categoriesDatabaseHelper.getWritableDatabase();
             SQLiteDatabase goods = goodsDatabaseHelper.getWritableDatabase();
-            Cursor cursor = categoriesDatabaseHelper.getItems(categories);
             boolean transaction = true;
-            if (cursor.getCount() == 0) {
+            if (categoriesDatabaseHelper.isEmpty(categories)) {
+                Log.d(TAG, "DB is empty. No need for transaction");
                 transaction = false;
             }
             if (transaction) {
+                Log.d(TAG, "Refreshing data in DB. Transaction started");
                 categories.beginTransaction();
                 goods.beginTransaction();
                 categoriesDatabaseHelper.deleteAll(categories);
@@ -145,6 +157,7 @@ public class MainActivity extends ActionBarActivity {
             try {
                 categoriesDatabaseHelper.uploadJSON(categories, goods, params[0]);
             } catch (JSONException e) {
+                Log.e(TAG, "Bad json " + e.getMessage());
                 return false;
             }
 
@@ -153,6 +166,7 @@ public class MainActivity extends ActionBarActivity {
                 categories.setTransactionSuccessful();
                 categories.endTransaction();
                 goods.endTransaction();
+                Log.d(TAG, "Refreshing data in DB. Transaction finished");
             }
 
             categories.close();
@@ -165,6 +179,7 @@ public class MainActivity extends ActionBarActivity {
         @Override
         protected void onPostExecute(Boolean aBoolean) {
             super.onPostExecute(aBoolean);
+            Log.d(TAG, "Data uploaded to DB. Starting load data from db");
             LoadFromDB loadFromDB = new LoadFromDB();
             loadFromDB.execute();
         }
@@ -173,7 +188,7 @@ public class MainActivity extends ActionBarActivity {
 
     private class DownloadJSON extends AsyncTask<Void, Void, JSONArray> {
 
-        private JSONArray extractJSONFromInputStream(InputStream stream) {
+        private JSONArray extractJSONFromInputStream(InputStream stream) throws JSONException {
             StringBuilder builder = new StringBuilder();
             try (InputStreamReader reader = new InputStreamReader(stream);
                  BufferedReader in = new BufferedReader(reader)) {
@@ -182,42 +197,43 @@ public class MainActivity extends ActionBarActivity {
                     builder.append(s);
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                Log.e(TAG, "Problem during read input stream " + e.getMessage());
             }
-            String string = builder.toString();
-            JSONArray result = null;
-            try {
-                result = new JSONArray(string);
-            } catch (JSONException e) {
-                e.printStackTrace();
-            }
-            return result;
+            return new JSONArray(builder.toString());
         }
 
         @Override
         protected JSONArray doInBackground(Void... params) {
             try {
-                URL url = new URL("https://money.yandex.ru/api/categories-list");
+                URL url = new URL(getString(R.string.url));
                 HttpURLConnection connection = (HttpURLConnection) url.openConnection();
                 if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
-                    Log.d("ALEXEI", "OK");
                     return extractJSONFromInputStream(connection.getInputStream());
-
                 }
             } catch (MalformedURLException e) {
-                e.printStackTrace();
+                Log.e(TAG, "Bad url " + e.getMessage());
             } catch (IOException e) {
-                e.printStackTrace();
+                Log.e(TAG, "Something bad during download " + e.getMessage());
+            } catch (JSONException e) {
+                Log.e(TAG, "Bad json " + e.getMessage());
             }
             return null;
+
         }
 
         @Override
         protected void onPostExecute(JSONArray jsonArray) {
             super.onPostExecute(jsonArray);
             if (jsonArray != null) {
+                Log.d(TAG, "JSON downloaded. Uploading to DB");
                 UploadToDB uploadToDB = new UploadToDB();
                 uploadToDB.execute(jsonArray);
+            } else {
+                Log.e(TAG, "Error while downloading JSON");
+                Toast.makeText(applicationContext, R.string.download_error, Toast.LENGTH_LONG).show();
+                Log.d(TAG, "Try to recover data from database");
+                LoadFromDB loadFromDB = new LoadFromDB();
+                loadFromDB.execute(false);
             }
         }
     }
